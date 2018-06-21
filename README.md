@@ -37,7 +37,11 @@ Add a command line notify to Home Assistant:
     notify:
       - platform: command_line
         name: 'My Dot Name'
-        command: "/home/homeassistant/.homeassistant/alexa_wrapper -d 'My Dot Name'"
+        command: "/home/homeassistant/.homeassistant/alexa_wrapper.sh -d 'My Dot Name'"
+        
+ If you are using hass.io, adjust the command line to:
+ 
+         command: ""/config/alexa_wrapper.sh -d 'My Dot Name'"
 
 Restart Home Assistant and you should now be able to call notify.my_dot_name with a message from an automation or the services interface broadcast messages to your devices. 
 
@@ -46,6 +50,6 @@ You can also add a notify for all of your Alexa devices:
     notify:
       - platform: command_line
         name: 'All Alexas'
-        command: "/home/homeassistant/.homeassistant/alexa_wrapper -d 'ALL'"
+        command: "/home/homeassistant/.homeassistant/alexa_wrapper.sh -d 'ALL'"
 
 Let me know if you have any questions!
