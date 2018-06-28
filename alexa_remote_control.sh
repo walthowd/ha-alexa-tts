@@ -62,7 +62,7 @@ ALEXA='pitangui.amazon.com'
 # binaries
 CURL='/usr/bin/curl'
 AWK='/usr/bin/awk'
-SED='/usr/local/bin/gsed'
+SED='/bin/sed'
 
 # cURL options
 #  -k : if your cURL cannot verify CA certificates, you'll have to trust any
