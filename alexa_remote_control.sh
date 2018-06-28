@@ -45,8 +45,10 @@
 #
 ##########################################
 
-EMAIL='amazon_account@email.address'
-PASSWORD='Very_Secret_Amazon_Account_Password'
+# EMAIL and PASSWORD are set on the keys 'alexa_email' and 'alexa_password'
+# in your secrets.yaml file.
+#SECRETS_YAML='/home/homeassistant/.homeassistant/secrets.yaml'
+SECRETS_YAML='/config/secrets.yaml'
 
 #LANGUAGE="de-DE"
 LANGUAGE="en-US"
@@ -57,8 +59,10 @@ AMAZON='amazon.com'
 #ALEXA='layla.amazon.de'
 ALEXA='pitangui.amazon.com'
 
-# cURL binary
+# binaries
 CURL='/usr/bin/curl'
+AWK='/usr/bin/awk'
+SED='/bin/sed'
 
 # cURL options
 #  -k : if your cURL cannot verify CA certificates, you'll have to trust any
@@ -127,6 +131,31 @@ usage()
 	echo "   -l : logoff"
 	echo "   -h : help"
 }
+
+#
+# Read yaml file and generate variables.
+# Github driven development. https://gist.github.com/pkuczynski/8665367
+#
+parse_yaml()
+{
+local prefix=$2
+local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
+${SED} -ne "s|^\($s\)\($w\)$s:$s\"\(.*\)\"$s\$|\1$fs\2$fs\3|p" \
+    -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  $1 |
+${AWK} -F$fs '{
+  indent = length($1)/2;
+  vname[indent] = $2;
+  for (i in vname) {if (i > indent) {delete vname[i]}}
+  if (length($3) > 0) {
+     vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
+     printf("%s%s%s=\"%s\"\n", "'$prefix'",vn, $2, $3);
+  }
+}'
+}
+
+eval $(parse_yaml ${SECRETS_YAML} "secrets_")
+EMAIL=${secrets_alexa_email}
+PASSWORD=${secrets_alexa_password}
 
 while [ "$#" -gt 0 ] ; do
 	case "$1" in
@@ -476,7 +505,7 @@ run_cmd()
 if [ -n "${SEQUENCECMD}" ]
 	then
 		if [ "${SEQUENCECMD}" = 'automation' ] ; then
-		
+
 			${CURL} ${OPTS} -s -b ${COOKIE} -A "${BROWSER}" -H "DNT: 1" -H "Connection: keep-alive" -L\
 			 -H "Content-Type: application/json; charset=UTF-8" -H "Referer: https://alexa.${AMAZON}/spa/index.html" -H "Origin: https://alexa.${AMAZON}"\
 			 -H "csrf: $(awk "\$0 ~/.${AMAZON}.*csrf[ \\s\\t]+/ {print \$7}" ${COOKIE})" -X GET \
@@ -651,7 +680,7 @@ show_queue()
 		PARENTDEVICE=$(jq --arg serial ${PARENTID} -r '.devices[] | select(.serialNumber == $serial) | .deviceType' ${DEVLIST})
 		PARENT="&lemurId=${PARENTID}&lemurDeviceType=${PARENTDEVICE}"
 	fi
-	
+
  ${CURL} ${OPTS} -s -b ${COOKIE} -A "${BROWSER}" -H "DNT: 1" -H "Connection: keep-alive" -L\
   -H "Content-Type: application/json; charset=UTF-8" -H "Referer: https://alexa.${AMAZON}/spa/index.html" -H "Origin: https://alexa.${AMAZON}"\
   -H "csrf: $(awk "\$0 ~/.${AMAZON}.*csrf[ \\s\\t]+/ {print \$7}" ${COOKIE})" -X GET \
