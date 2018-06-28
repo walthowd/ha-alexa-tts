@@ -45,8 +45,10 @@
 #
 ##########################################
 
-EMAIL='amazon_account@email.address'
-PASSWORD='Very_Secret_Amazon_Account_Password'
+# EMAIL and PASSWORD are set on the keys 'alexa_email' and 'alexa_password'
+# in your secrets.yaml file.
+SECRETS_YAML='/home/homeassistant/.homeassistant/secrets.yaml'
+#SECRETS_YAML='/config/secrets.yaml'
 
 #LANGUAGE="de-DE"
 LANGUAGE="en-US"
@@ -57,8 +59,10 @@ AMAZON='amazon.com'
 #ALEXA='layla.amazon.de'
 ALEXA='pitangui.amazon.com'
 
-# cURL binary
+# binaries
 CURL='/usr/bin/curl'
+AWK='/usr/bin/awk'
+SED='/bin/sed'
 
 # cURL options
 #  -k : if your cURL cannot verify CA certificates, you'll have to trust any
@@ -127,6 +131,31 @@ usage()
 	echo "   -l : logoff"
 	echo "   -h : help"
 }
+
+#
+# Read yaml file and generate variables.
+# Github driven development. https://gist.github.com/pkuczynski/8665367
+#
+parse_yaml()
+{
+local prefix=$2
+local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
+${SED} -ne "s|^\($s\)\($w\)$s:$s\"\(.*\)\"$s\$|\1$fs\2$fs\3|p" \
+    -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  $1 |
+${AWK} -F$fs '{
+  indent = length($1)/2;
+  vname[indent] = $2;
+  for (i in vname) {if (i > indent) {delete vname[i]}}
+  if (length($3) > 0) {
+     vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
+     printf("%s%s%s=\"%s\"\n", "'$prefix'",vn, $2, $3);
+  }
+}'
+}
+
+eval $(parse_yaml ${SECRETS_YAML} "secrets_")
+EMAIL=${secrets_alexa_email}
+PASSWORD=${secrets_alexa_password}
 
 while [ "$#" -gt 0 ] ; do
 	case "$1" in
@@ -309,12 +338,13 @@ case "$COMMAND" in
 			;;
 	speak:*)
 			SEQUENCECMD='Alexa.Speak'
-			TTS=$(echo ${COMMAND##*:} | sed -r 's/[^-a-zA-Z0-9_.,?! ]//g' | sed 's/ /_/g')
+
+			TTS=$(echo ${COMMAND##*:} | ${SED} -r 's/[^-a-zA-Z0-9_.,?! ]//g' | sed 's/ /_/g')
 			TTS=",\\\"textToSpeak\\\":\\\"${TTS}\\\""
 			;;
 	automation:*)
 			SEQUENCECMD='automation'
-			UTTERANCE=$(echo ${COMMAND##*:} | sed -r 's/[^-a-zA-Z0-9_,?! ]//g')
+			UTTERANCE=$(echo ${COMMAND##*:} | ${SED} -r 's/[^-a-zA-Z0-9_,?! ]//g')
 			;;
 	weather)
 			SEQUENCECMD='Alexa.Weather.Play'
@@ -364,13 +394,13 @@ rm -f ${TMP}/.alexa.*.list
 # get first cookie and write redirection target into referer
 #
 ${CURL} ${OPTS} -s -D "${TMP}/.alexa.header" -c ${COOKIE} -b ${COOKIE} -A "${BROWSER}" -H "Accept-Language: ${LANGUAGE}" -H "DNT: 1" -H "Connection: keep-alive" -H "Upgrade-Insecure-Requests: 1" -L\
- https://alexa.${AMAZON} | grep "hidden" | sed 's/hidden/\n/g' | grep "value=\"" | sed -r 's/^.*name="([^"]+)".*value="([^"]+)".*/\1=\2\&/g' > "${TMP}/.alexa.postdata"
+ https://alexa.${AMAZON} | grep "hidden" | ${SED} 's/hidden/\n/g' | grep "value=\"" | ${SED} -r 's/^.*name="([^"]+)".*value="([^"]+)".*/\1=\2\&/g' > "${TMP}/.alexa.postdata"
 
 #
 # login empty to generate session
 #
 ${CURL} ${OPTS} -s -c ${COOKIE} -b ${COOKIE} -A "${BROWSER}" -H "Accept-Language: ${LANGUAGE}" -H "DNT: 1" -H "Connection: keep-alive" -H "Upgrade-Insecure-Requests: 1" -L\
- -H "$(grep 'Location: ' ${TMP}/.alexa.header | sed 's/Location: /Referer: /')" -d "@${TMP}/.alexa.postdata" https://www.${AMAZON}/ap/signin | grep "hidden" | sed 's/hidden/\n/g' | grep "value=\"" | sed -r 's/^.*name="([^"]+)".*value="([^"]+)".*/\1=\2\&/g' > "${TMP}/.alexa.postdata2"
+ -H "$(grep 'Location: ' ${TMP}/.alexa.header | ${SED} 's/Location: /Referer: /')" -d "@${TMP}/.alexa.postdata" https://www.${AMAZON}/ap/signin | grep "hidden" | ${SED} 's/hidden/\n/g' | grep "value=\"" | ${SED} -r 's/^.*name="([^"]+)".*value="([^"]+)".*/\1=\2\&/g' > "${TMP}/.alexa.postdata2"
 
 #
 # login with filled out form
@@ -426,7 +456,7 @@ check_status()
 # bootstrap with GUI-Version writes GUI version to cookie
 #  returns among other the current authentication state
 #
-	AUTHSTATUS=$(${CURL} ${OPTS} -s -b ${COOKIE} -A "${BROWSER}" -H "DNT: 1" -H "Connection: keep-alive" -L https://${ALEXA}/api/bootstrap?version=${GUIVERSION} | sed -r 's/^.*"authenticated":([^,]+),.*$/\1/g')
+	AUTHSTATUS=$(${CURL} ${OPTS} -s -b ${COOKIE} -A "${BROWSER}" -H "DNT: 1" -H "Connection: keep-alive" -L https://${ALEXA}/api/bootstrap?version=${GUIVERSION} | ${SED} -r 's/^.*"authenticated":([^,]+),.*$/\1/g')
 
 	if [ "$AUTHSTATUS" = "true" ] ; then
 		return 1
@@ -440,7 +470,7 @@ check_status()
 #
 set_var()
 {
-	DEVICE=$(echo ${DEVICE} | sed -r 's/%20/ /g')
+	DEVICE=$(echo ${DEVICE} | ${SED} -r 's/%20/ /g')
 
 	if [ -z "${DEVICE}" ] ; then
 		# if no device was supplied, use the first Echo(dot) in device list
@@ -476,7 +506,7 @@ run_cmd()
 if [ -n "${SEQUENCECMD}" ]
 	then
 		if [ "${SEQUENCECMD}" = 'automation' ] ; then
-		
+
 			${CURL} ${OPTS} -s -b ${COOKIE} -A "${BROWSER}" -H "DNT: 1" -H "Connection: keep-alive" -L\
 			 -H "Content-Type: application/json; charset=UTF-8" -H "Referer: https://alexa.${AMAZON}/spa/index.html" -H "Origin: https://alexa.${AMAZON}"\
 			 -H "csrf: $(awk "\$0 ~/.${AMAZON}.*csrf[ \\s\\t]+/ {print \$7}" ${COOKIE})" -X GET \
@@ -488,7 +518,7 @@ if [ -n "${SEQUENCECMD}" ]
 				rm -f "${TMP}/.alexa.automation"
 				exit 1
 			fi
-			SEQUENCE=$(jq --arg utterance "${UTTERANCE}"  -rc '.[] | select( .triggers[].payload.utterance == $utterance) | .sequence' "${TMP}/.alexa.automation" | sed 's/"/\\"/g' | sed "s/ALEXA_CURRENT_DEVICE_TYPE/${DEVICETYPE}/g" | sed "s/ALEXA_CURRENT_DSN/${DEVICESERIALNUMBER}/g" | sed "s/ALEXA_CUSTOMER_ID/${MEDIAOWNERCUSTOMERID}/g" | sed 's/ /_/g')
+			SEQUENCE=$(jq --arg utterance "${UTTERANCE}"  -rc '.[] | select( .triggers[].payload.utterance == $utterance) | .sequence' "${TMP}/.alexa.automation" | ${SED} 's/"/\\"/g' | ${SED} "s/ALEXA_CURRENT_DEVICE_TYPE/${DEVICETYPE}/g" | ${SED} "s/ALEXA_CURRENT_DSN/${DEVICESERIALNUMBER}/g" | ${SED} "s/ALEXA_CUSTOMER_ID/${MEDIAOWNERCUSTOMERID}/g" | ${SED} 's/ /_/g')
 			rm -f "${TMP}/.alexa.automation"
 
 			echo "Running routine: ${UTTERANCE}"
@@ -651,7 +681,7 @@ show_queue()
 		PARENTDEVICE=$(jq --arg serial ${PARENTID} -r '.devices[] | select(.serialNumber == $serial) | .deviceType' ${DEVLIST})
 		PARENT="&lemurId=${PARENTID}&lemurDeviceType=${PARENTDEVICE}"
 	fi
-	
+
  ${CURL} ${OPTS} -s -b ${COOKIE} -A "${BROWSER}" -H "DNT: 1" -H "Connection: keep-alive" -L\
   -H "Content-Type: application/json; charset=UTF-8" -H "Referer: https://alexa.${AMAZON}/spa/index.html" -H "Origin: https://alexa.${AMAZON}"\
   -H "csrf: $(awk "\$0 ~/.${AMAZON}.*csrf[ \\s\\t]+/ {print \$7}" ${COOKIE})" -X GET \
@@ -790,7 +820,7 @@ fi
 
 if [ -n "$COMMAND" -o -n "$QUEUE" ] ; then
 	if [ "${DEVICE}" = "ALL" ] ; then
-		for DEVICE in $(jq -r '.devices[] | select( .deviceFamily == "ECHO" or .deviceFamily == "KNIGHT" or .deviceFamily == "ROOK" or .deviceFamily == "WHA") | .accountName' ${DEVLIST} | sed -r 's/ /%20/g') ; do
+		for DEVICE in $(jq -r '.devices[] | select( .deviceFamily == "ECHO" or .deviceFamily == "KNIGHT" or .deviceFamily == "ROOK" or .deviceFamily == "WHA") | .accountName' ${DEVLIST} | ${SED} -r 's/ /%20/g') ; do
 			set_var
 			if [ -n "$COMMAND" ] ; then
 				echo "sending cmd:${COMMAND} to dev:${DEVICE} type:${DEVICETYPE} serial:${DEVICESERIALNUMBER} customerid:${MEDIAOWNERCUSTOMERID}"
@@ -831,7 +861,7 @@ elif [ -n "$LEMUR" ] ; then
 elif [ -n "$BLUETOOTH" ] ; then
 	if [ "$BLUETOOTH" = "list" -o "$BLUETOOTH" = "List" -o "$BLUETOOTH" = "LIST" ] ; then
 		if [ "${DEVICE}" = "ALL" ] ; then
-			for DEVICE in $(jq -r '.devices[] | select( .deviceFamily == "ECHO" or .deviceFamily == "KNIGHT" or .deviceFamily == "ROOK" or .deviceFamily == "WHA") | .accountName' ${DEVLIST} | sed -r 's/ /%20/g') ; do
+			for DEVICE in $(jq -r '.devices[] | select( .deviceFamily == "ECHO" or .deviceFamily == "KNIGHT" or .deviceFamily == "ROOK" or .deviceFamily == "WHA") | .accountName' ${DEVLIST} | ${SED} -r 's/ /%20/g') ; do
 				set_var
 				echo "bluetooth devices for dev:${DEVICE} type:${DEVICETYPE} serial:${DEVICESERIALNUMBER}:"
 				list_bluetooth
