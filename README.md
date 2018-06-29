@@ -21,7 +21,7 @@ Run the script interactively to pull your devices:
 
     ./alexa_remote_control.sh -a
 
- If login fails look at **/tmp/.alexa.login**. Search for "password" and see if you are being prompted for the captcha. If so, you can attempt to login to alexa.amazon.com manually from a browser (from the same IP) and see if that fixes the issue for you. It never did for me, so I logged in to alexa.amazon.com with Chome and used the cookies.txt extension to export my amazon cookies to /tmp/.alexa.cookie.
+ If login fails look at **/tmp/.alexa.login**. Search for "password" and see if you are being prompted for the captcha. If so, you can attempt to login to [Alexa](https://alexa.amazon.com) manually from a browser (from the same IP) and see if that fixes the issue for you. It never did for me, so I logged in to https://alexa.amazon.com with Chrome and used the cookies.txt extension to export my amazon cookies to /tmp/.alexa.cookie.
 
 Once you have **./alexa_remote_control.sh -a** returning your devices you can test TTS by running:
 
