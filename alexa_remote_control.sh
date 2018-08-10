@@ -51,12 +51,15 @@ SECRETS_YAML='/home/homeassistant/.homeassistant/secrets.yaml'
 #SECRETS_YAML='/config/secrets.yaml'
 
 #LANGUAGE="de-DE"
+#LANGUAGE="en-GB"
 LANGUAGE="en-US"
 
 #AMAZON='amazon.de'
+#AMAZON='amazon.co.uk'
 AMAZON='amazon.com'
 
 #ALEXA='layla.amazon.de'
+#ALEXA='layla.amazon.co.uk'
 ALEXA='pitangui.amazon.com'
 
 # binaries
