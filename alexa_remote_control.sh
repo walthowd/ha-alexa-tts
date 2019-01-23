@@ -35,6 +35,8 @@
 #		(thanks to Ralf Otto for implementing this feature in this script)
 # 2018-06-13: v0.10a added album play of imported library
 # 2018-06-18: v0.10b added Alex routine execution
+# 2018-06-18: v0.10b added Alexa routine execution
+# 2019-01-22: v0.11 added repeat command, ES language options, persistent cookie for hass.io
 #
 ###
 #
@@ -45,6 +47,8 @@
 #
 ##########################################
 
+
+
 # EMAIL and PASSWORD are set on the keys 'alexa_email' and 'alexa_password'
 # in your secrets.yaml file.
 SECRETS_YAML='/home/homeassistant/.homeassistant/secrets.yaml'
@@ -52,15 +56,19 @@ SECRETS_YAML='/home/homeassistant/.homeassistant/secrets.yaml'
 
 #LANGUAGE="de-DE"
 #LANGUAGE="en-GB"
+#LANGUAGE="es-ES"
 LANGUAGE="en-US"
 
 #AMAZON='amazon.de'
 #AMAZON='amazon.co.uk'
+#AMAZON='amazon.es'
 AMAZON='amazon.com'
 
 #ALEXA='layla.amazon.de'
 #ALEXA='layla.amazon.co.uk'
+#ALEXA='alexa.amazon.es'
 ALEXA='pitangui.amazon.com'
+
 
 # binaries
 CURL='/usr/bin/curl'
@@ -75,12 +83,16 @@ OPTS='--compressed --http1.1'
 #OPTS='-k --compressed --http1.1'
 
 # browser identity
+
 BROWSER='Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:99.0) Gecko/20100101 Firefox/99.0'
+
+# Change your TMP for Hass.io to keep cookie between reboots
+#TMP="/config/tmp"
+TMP="/tmp"
 
 ###########################################
 # nothing to configure below here
 #
-TMP="/tmp"
 COOKIE="${TMP}/.alexa.cookie"
 DEVLIST="${TMP}/.alexa.devicelist.json"
 
@@ -109,7 +121,7 @@ LASTALEXA=""
 
 usage()
 {
-	echo "$0 [-d <device>|ALL] -e <pause|play|next|prev|fwd|rwd|shuffle|vol:<0-100>> |"
+	echo "$0 [-d <device>|ALL] -e <pause|play|next|prev|fwd|rwd|shuffle|repeat|vol:<0-100>> |"
 	echo "          -b [list|<\"AA:BB:CC:DD:EE:FF\">] | -q | -r <\"station name\"|stationid> |"
 	echo "          -s <trackID|'Artist' 'Album'> | -t <ASIN> | -u <seedID> | -v <queueID> | -w <playlistId> |"
 	echo "          -i | -p | -P | -S | -a | -m <multiroom_device> [device_1 .. device_X] | -lastalexa | -l | -h"
@@ -328,6 +340,9 @@ case "$COMMAND" in
 	shuffle)
 			COMMAND='{"type":"ShuffleCommand","shuffle":"true"}'
 			;;
+	repeat)
+			COMMAND='{"type":"RepeatCommand","repeat":true}'
+			;;
 	vol:*)
 			VOL=${COMMAND##*:}
 			# volume as integer!
@@ -459,7 +474,9 @@ check_status()
 # bootstrap with GUI-Version writes GUI version to cookie
 #  returns among other the current authentication state
 #
-	AUTHSTATUS=$(${CURL} ${OPTS} -s -b ${COOKIE} -A "${BROWSER}" -H "DNT: 1" -H "Connection: keep-alive" -L https://${ALEXA}/api/bootstrap?version=${GUIVERSION} | ${SED} -r 's/^.*"authenticated":([^,]+),.*$/\1/g')
+	AUTHSTATUS=$(${CURL} ${OPTS} -s -b ${COOKIE} -A "${BROWSER}" -H "DNT: 1" -H "Connection: keep-alive" -L https://${ALEXA}/api/bootstrap?version=${GUIVERSION})
+	MEDIAOWNERCUSTOMERID=$(echo $AUTHSTATUS | ${SED} -r 's/^.*"customerId":"([^,]+)",.*$/\1/g')
+	AUTHSTATUS=$(echo $AUTHSTATUS | ${SED} -r 's/^.*"authenticated":([^,]+),.*$/\1/g')
 
 	if [ "$AUTHSTATUS" = "true" ] ; then
 		return 1
@@ -484,7 +501,10 @@ set_var()
 
 	DEVICETYPE=$(jq --arg device "${DEVICE}" -r '.devices[] | select(.accountName == $device) | .deviceType' ${DEVLIST})
 	DEVICESERIALNUMBER=$(jq --arg device "${DEVICE}" -r '.devices[] | select(.accountName == $device) | .serialNumber' ${DEVLIST})
-	MEDIAOWNERCUSTOMERID=$(jq --arg device "${DEVICE}" -r '.devices[] | select(.accountName == $device) | .deviceOwnerCustomerId' ${DEVLIST})
+	
+
+
+
 
 	if [ -z "${DEVICESERIALNUMBER}" ] ; then
 		echo "ERROR: unkown device dev:${DEVICE}"
@@ -521,7 +541,7 @@ if [ -n "${SEQUENCECMD}" ]
 				rm -f "${TMP}/.alexa.automation"
 				exit 1
 			fi
-			SEQUENCE=$(jq --arg utterance "${UTTERANCE}"  -rc '.[] | select( .triggers[].payload.utterance == $utterance) | .sequence' "${TMP}/.alexa.automation" | ${SED} 's/"/\\"/g' | ${SED} "s/ALEXA_CURRENT_DEVICE_TYPE/${DEVICETYPE}/g" | ${SED} "s/ALEXA_CURRENT_DSN/${DEVICESERIALNUMBER}/g" | ${SED} "s/ALEXA_CUSTOMER_ID/${MEDIAOWNERCUSTOMERID}/g" | ${SED} 's/ /_/g')
+			SEQUENCE=$(jq --arg utterance "${UTTERANCE}"  -r -c '.[] | select( .triggers[].payload.utterance == $utterance) | .sequence' "${TMP}/.alexa.automation" | ${SED} 's/"/\\"/g' | ${SED} "s/ALEXA_CURRENT_DEVICE_TYPE/${DEVICETYPE}/g" | ${SED} "s/ALEXA_CURRENT_DSN/${DEVICESERIALNUMBER}/g" | ${SED} "s/ALEXA_CUSTOMER_ID/${MEDIAOWNERCUSTOMERID}/g" | ${SED} 's/ /_/g')
 			rm -f "${TMP}/.alexa.automation"
 
 			echo "Running routine: ${UTTERANCE}"
