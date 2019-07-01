@@ -448,7 +448,21 @@ fi
 #
 ${CURL} ${OPTS} -s -c ${COOKIE} -b ${COOKIE} -A "${BROWSER}" -H "DNT: 1" -H "Connection: keep-alive" -L\
  -H "Referer: https://alexa.${AMAZON}/spa/index.html" -H "Origin: https://alexa.${AMAZON}"\
- https://${ALEXA}/templates/oobe/d-device-pick.handlebars > /dev/null
+  https://${ALEXA}/api/language > /dev/null
+  
+if [ -z "$(grep ".${AMAZON}.*csrf" ${COOKIE})" ] ; then
+	echo "trying to get CSRF from handlebars"
+	${CURL} ${OPTS} -s -c ${COOKIE} -b ${COOKIE} -A "${BROWSER}" -H "DNT: 1" -H "Connection: keep-alive" -L\
+	 -H "Referer: https://alexa.${AMAZON}/spa/index.html" -H "Origin: https://alexa.${AMAZON}"\
+	 https://${ALEXA}/templates/oobe/d-device-pick.handlebars > /dev/null
+fi
+
+if [ -z "$(grep ".${AMAZON}.*csrf" ${COOKIE})" ] ; then
+	echo "trying to get CSRF from devices-v2"
+	${CURL} ${OPTS} -s -c ${COOKIE} -b ${COOKIE} -A "${BROWSER}" -H "DNT: 1" -H "Connection: keep-alive" -L\
+	 -H "Referer: https://alexa.${AMAZON}/spa/index.html" -H "Origin: https://alexa.${AMAZON}"\
+	 https://${ALEXA}/api/devices-v2/device?cached=false > /dev/null
+fi
 
 rm -f "${TMP}/.alexa.login"
 rm -f "${TMP}/.alexa.header"
