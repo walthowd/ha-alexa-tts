@@ -64,7 +64,7 @@ shift
 
 read message
 
-formatted=${message// /_}
+formatted=${message// /-}
 
 $ALEXA_REMOTE -d "$DEVICE" -e speak:$formatted >> /dev/null
 exit 0                
