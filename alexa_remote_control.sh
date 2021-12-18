@@ -51,7 +51,7 @@
 
 # EMAIL and PASSWORD are set on the keys 'alexa_email' and 'alexa_password'
 # in your secrets.yaml file.
-HOME="/home/pi"
+HOME="/home/homeassistant"
 SECRETS_YAML="$HOME/.homeassistant/secrets.yaml"
 #SECRETS_YAML='/config/secrets.yaml'
 
