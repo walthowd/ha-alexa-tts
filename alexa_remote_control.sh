@@ -51,7 +51,8 @@
 
 # EMAIL and PASSWORD are set on the keys 'alexa_email' and 'alexa_password'
 # in your secrets.yaml file.
-SECRETS_YAML='/home/homeassistant/.homeassistant/secrets.yaml'
+HOME="/home/homeassistant"
+SECRETS_YAML="$HOME/.homeassistant/secrets.yaml"
 #SECRETS_YAML='/config/secrets.yaml'
 
 #LANGUAGE="de-DE"
@@ -357,7 +358,7 @@ case "$COMMAND" in
 	speak:*)
 			SEQUENCECMD='Alexa.Speak'
 
-			TTS=$(echo ${COMMAND##*:} | ${SED} -r 's/[^-a-zA-Z0-9_.,?! ]//g' | sed 's/ /_/g')
+			TTS=$(echo ${COMMAND##*:} | ${SED} -r 's/[^-a-zA-Z0-9_.,?! ]//g' | ${SED} 's/ /-/g')
 			TTS=",\\\"textToSpeak\\\":\\\"${TTS}\\\""
 			;;
 	automation:*)
